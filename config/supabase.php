@@ -96,7 +96,8 @@ function supabase_build_query(array $filters = [], ?int $limit = null, ?int $off
             $op = 'eq';
             $value = $condition;
         }
-        $params[$column] = $op . '.' . rawurlencode((string)$value);
+        // Do NOT pre-encode $value here; http_build_query will encode once.
+        $params[$column] = $op . '.' . (string)$value;
     }
     if ($limit !== null) {
         $params['limit'] = (string)$limit;
