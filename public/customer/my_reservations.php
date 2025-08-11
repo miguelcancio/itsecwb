@@ -101,27 +101,7 @@ include __DIR__ . '/../includes/header.php';
         <?php if ($msg): ?><p class="success"><?php echo htmlspecialchars($msg); ?></p><?php endif; ?>
         <?php if ($err): ?><p class="error"><?php echo htmlspecialchars($err); ?></p><?php endif; ?>
         
-        <!-- Debug Information (remove in production) -->
-        <?php if (defined('APP_DEBUG') && APP_DEBUG): ?>
-            <div class="debug-info">
-                <h4>Debug Info:</h4>
-                <p><strong>Available Rooms:</strong> <?php echo count($availableRooms); ?></p>
-                <p><strong>User ID:</strong> <?php echo htmlspecialchars($_SESSION['user']['id'] ?? 'Not set'); ?></p>
-                <p><strong>Selected Room ID:</strong> <?php echo htmlspecialchars($selectedRoomId ?: 'None'); ?></p>
-                <p><strong>Selected Month/Year:</strong> <?php echo $selectedMonth . '/' . $selectedYear; ?></p>
-                <p><strong>Current URL:</strong> <?php echo htmlspecialchars($_SERVER['REQUEST_URI'] ?? 'Unknown'); ?></p>
-                <p><strong>GET Parameters:</strong> <?php echo htmlspecialchars(json_encode($_GET)); ?></p>
-                <?php if (!empty($availableRooms)): ?>
-                    <p><strong>First Room:</strong> ID: <?php echo htmlspecialchars($availableRooms[0]['id'] ?? 'No ID'); ?>, Name: <?php echo htmlspecialchars($availableRooms[0]['name'] ?? 'No name'); ?></p>
-                <?php endif; ?>
-                <?php if ($selectedRoomId): ?>
-                    <p><strong>Room Availability Result:</strong> <?php echo $roomAvailability ? 'Success' : 'Failed'; ?></p>
-                    <?php if ($roomAvailability && isset($roomAvailability['error'])): ?>
-                        <p><strong>Error:</strong> <?php echo htmlspecialchars($roomAvailability['error']); ?></p>
-                    <?php endif; ?>
-                <?php endif; ?>
-            </div>
-        <?php endif; ?>
+        
     </div>
 
     <?php if (!empty($availableRooms)): ?>
@@ -142,21 +122,7 @@ include __DIR__ . '/../includes/header.php';
                     <?php endforeach; ?>
                 </select>
                 
-                <!-- Test Button -->
-                <div style="margin-top: 10px;">
-                    <button type="button" onclick="testRoomSelection()" class="btn secondary">Test Room Selection</button>
-                    <span id="testResult" style="margin-left: 10px; font-size: 12px;"></span>
-                </div>
                 
-                <!-- Direct Room Links for Testing -->
-                <div style="margin-top: 15px; padding: 10px; background: #f8f9fa; border-radius: 4px;">
-                    <p style="margin: 0 0 10px 0; font-size: 14px;"><strong>Quick Test Links:</strong></p>
-                    <?php foreach (array_slice($availableRooms, 0, 3) as $room): ?>
-                        <a href="?room_id=<?php echo urlencode($room['id']); ?>" class="btn secondary" style="margin-right: 5px; margin-bottom: 5px; display: inline-block;">
-                            Test <?php echo htmlspecialchars($room['name']); ?>
-                        </a>
-                    <?php endforeach; ?>
-                </div>
             </div>
 
             <?php if ($selectedRoomId && $roomAvailability && !isset($roomAvailability['error'])): ?>
@@ -305,12 +271,7 @@ include __DIR__ . '/../includes/header.php';
                             </form>
                         </div>
                         
-                        <!-- Debug Info -->
-                        <div class="debug-info">
-                            <h5>Debug: Room Availability Function</h5>
-                            <p><strong>Function Result:</strong> <?php echo $roomAvailability ? 'Success' : 'Failed'; ?></p>
-                            <p><strong>Raw Result:</strong> <pre><?php echo var_export($roomAvailability, true); ?></pre></p>
-                        </div>
+                        
                     <?php else: ?>
                         <p class="error">Selected room not found in available rooms list.</p>
                     <?php endif; ?>
