@@ -1,43 +1,14 @@
+<?php declare(strict_types=1); ?>
+<?php include __DIR__ . '/includes/header.php'; ?>
+  <div class="card">
+    <h1>Welcome to Dorm Reservation</h1>
+    <p>Reserve rooms securely with role-based access controls.</p>
+    <?php if (empty($_SESSION['user'])): ?>
+      <a class="btn" href="/login.php">Login</a>
+      <a class="btn secondary" href="/register.php">Register</a>
+    <?php else: ?>
+      <p>You are logged in as <?php echo htmlspecialchars($_SESSION['user']['email']); ?> (<?php echo htmlspecialchars($_SESSION['user']['role']); ?>)</p>
+    <?php endif; ?>
+  </div>
+<?php include __DIR__ . '/includes/footer.php'; ?>
 
-<?php
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
-session_start();
-require __DIR__ . '/../config/supabase.php';
-
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = $_POST['email'];
-    $password = $_POST['password'];
-
-    $response = $supabase->auth->signInWithPassword([
-        'email' => $email,
-        'password' => $password
-    ]);
-
-    if (!empty($response->user)) {
-    $_SESSION['user'] = $response->user;
-    header('Location: dashboard.php');
-    exit;
-} else {
-    $error = $response->error->message ?? 'Login failed';
-}
-
-}
-?>
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Login</title>
-</head>
-<body>
-    <h1>Login</h1>
-    <?php if (!empty($error)): ?><p style="color:red;"><?= htmlspecialchars($error) ?></p><?php endif; ?>
-    <form method="post">
-        Email: <input type="email" name="email" required><br>
-        Password: <input type="password" name="password" required><br>
-        <button type="submit">Login</button>
-    </form>
-    <p><a href="index.php">Back</a></p>
-</body>
-</html>

@@ -1,0 +1,71 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../config/supabase.php';
+
+function app_log_dir(): string {
+    $dir = __DIR__ . '/../../logs';
+    if (!is_dir($dir)) {
+        @mkdir($dir, 0700, true);
+    }
+    return $dir;
+}
+
+function app_log_path(): string {
+    return app_log_dir() . '/app.log';
+}
+
+function get_client_ip(): string {
+    $keys = ['HTTP_CLIENT_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR'];
+    foreach ($keys as $k) {
+        if (!empty($_SERVER[$k])) {
+            $ip = (string)$_SERVER[$k];
+            if ($k === 'HTTP_X_FORWARDED_FOR') {
+                $parts = explode(',', $ip);
+                $ip = trim($parts[0]);
+            }
+            return $ip;
+        }
+    }
+    return '0.0.0.0';
+}
+
+function log_event(string $type, string $message, array $context = []): void {
+    $entry = [
+        'ts' => gmdate('c'),
+        'type' => $type,
+        'message' => $message,
+        'ip' => get_client_ip(),
+        'user_id' => $_SESSION['user']['id'] ?? null,
+        'role' => $_SESSION['user']['role'] ?? null,
+        'uri' => $_SERVER['REQUEST_URI'] ?? null,
+        'context' => $context,
+    ];
+    $line = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
+    @file_put_contents(app_log_path(), $line, FILE_APPEND | LOCK_EX);
+}
+
+// Production-safe error/exception handlers
+set_exception_handler(function (Throwable $e) {
+    log_event('exception', 'Unhandled exception', [
+        'class' => get_class($e),
+        'code' => $e->getCode(),
+        'message' => $e->getMessage(),
+    ]);
+    http_response_code(500);
+    $debug = ($_ENV['APP_DEBUG'] ?? 'false') === 'true';
+    if ($debug) {
+        echo 'Error: ' . htmlspecialchars($e->getMessage());
+    } else {
+        echo 'An unexpected error occurred.';
+    }
+    exit;
+});
+
+set_error_handler(function ($severity, $message, $file, $line) {
+    // Convert errors to exceptions for uniform logging
+    log_event('php_error', $message, ['severity' => $severity, 'file' => $file, 'line' => $line]);
+    return true; // prevent default handler
+});
+
+

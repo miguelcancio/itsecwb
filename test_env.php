@@ -15,4 +15,4 @@ $response = $supabase->auth->signInWithPassword([
 
 echo '<pre>';
 var_dump($response);
-echo '</pre>' ;
+echo '</pre>';
