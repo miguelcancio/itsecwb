@@ -24,7 +24,7 @@ $user = $_SESSION['user'] ?? null;
     table { width:100%; border-collapse: collapse; }
     th, td { padding:8px; border-bottom:1px solid #e5e7eb; text-align:left; }
   </style>
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'"> 
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"> 
 </head>
 <body>
 <header>
@@ -34,6 +34,7 @@ $user = $_SESSION['user'] ?? null;
       <?php if ($user['role'] === 'admin'): ?>
         <a href="/admin/dashboard.php">Admin Dashboard</a>
         <a href="/admin/manage_users.php">Manage Users</a>
+        <a href="/manager/manage_reservations.php">Reservations</a>
         <a href="/admin/view_logs.php">Logs</a>
       <?php elseif ($user['role'] === 'manager'): ?>
         <a href="/manager/dashboard.php">Manager Dashboard</a>

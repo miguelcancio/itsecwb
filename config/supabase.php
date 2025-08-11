@@ -88,17 +88,49 @@ function supabase_build_query(array $filters = [], ?int $limit = null, ?int $off
     if ($select) {
         $params['select'] = $select;
     }
+
     foreach ($filters as $column => $condition) {
+        $op = 'eq';
+        $value = null;
+
         if (is_array($condition)) {
-            $op = $condition['op'] ?? 'eq';
-            $value = $condition['value'] ?? null;
+            // Support both explicit shape ['op' => 'gte', 'value' => '2025-01-01']
+            // and shorthand shape ['gte' => '2025-01-01'] or ['in' => ['a','b']]
+            if (array_key_exists('op', $condition)) {
+                $op = (string)$condition['op'];
+                $value = $condition['value'] ?? null;
+            } elseif (count($condition) === 1) {
+                $op = (string)array_key_first($condition);
+                $value = $condition[$op];
+            } else {
+                // If multiple keys provided unexpectedly, fall back to eq on raw array
+                $op = 'eq';
+                $value = $condition;
+            }
         } else {
             $op = 'eq';
             $value = $condition;
         }
+
+        // Normalize IN value formatting for PostgREST: in.(a,b)
+        if (strtolower($op) === 'in') {
+            if (is_array($value)) {
+                $escaped = array_map(static function ($v) {
+                    if (is_bool($v)) { return $v ? 'true' : 'false'; }
+                    return (string)$v;
+                }, $value);
+                $value = '(' . implode(',', $escaped) . ')';
+            } else {
+                $value = (string)$value;
+            }
+        } else {
+            $value = (string)$value;
+        }
+
         // Do NOT pre-encode $value here; http_build_query will encode once.
-        $params[$column] = $op . '.' . (string)$value;
+        $params[$column] = $op . '.' . $value;
     }
+
     if ($limit !== null) {
         $params['limit'] = (string)$limit;
     }
@@ -119,6 +151,7 @@ function sb_get(string $table, array $filters = [], ?int $limit = null, ?int $of
         $json = json_decode($body, true);
         return is_array($json) ? $json : [];
     }
+    error_log('[sb_get] HTTP ' . $status . ' url=' . $url . ' body=' . substr($body, 0, 500));
     return [];
 }
 
@@ -135,6 +168,7 @@ function sb_insert(string $table, array $data): ?array {
         $json = json_decode($body, true);
         return is_array($json) ? ($json[0] ?? $json) : null;
     }
+    error_log('[sb_insert] HTTP ' . $status . ' url=' . $url . ' body=' . substr($body, 0, 500));
     return null;
 }
 
