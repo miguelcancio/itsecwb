@@ -51,7 +51,7 @@ $user = $_SESSION['user'] ?? null;
 
     /* Full-bleed promo band */
     .container > .full-bleed { margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw); width: 100vw; }
-    .promo { background:#b29279; color:#fff; padding:120px 24px; margin-top:160px; }
+    .promo { background:#b29279; color:#fff; padding:120px 24px; margin-top:12px; }
     .promo p { margin:0; text-align:center; font-style:italic; font-size:26px; }
 
     /* Features/cards */
