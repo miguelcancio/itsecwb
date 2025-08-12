@@ -65,5 +65,9 @@ include __DIR__ . '/includes/header.php';
       </div>
       <button class="btn" type="submit">Sign in</button>
     </form>
+    
+    <div style="margin-top: 20px; text-align: center;">
+      <a href="/reset_password.php" style="color: #007bff; text-decoration: none;">Forgot your password? Reset it here</a>
+    </div>
   </div>
 <?php include __DIR__ . '/includes/footer.php'; ?>
