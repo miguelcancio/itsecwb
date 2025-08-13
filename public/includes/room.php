@@ -14,14 +14,14 @@ function get_room_by_id(string $roomId): ?array {
 }
 
 function create_room(string $name, string $description = '', int $capacity = 1): ?array {
-    $name = sanitize_text($name, 64);
-    if ($name === '') { return null; }
-    $description = sanitize_text($description, 255);
+    $validatedName = validate_user_input_text($name, 64);
+    if (!$validatedName) { return null; }
+    $validatedDescription = validate_user_input_text($description, 255);
     $capacity = validate_int_range($capacity, 1, 10) ?? 1;
     
     $room = sb_insert('rooms', [
-        'name' => $name,
-        'description' => $description,
+        'name' => $validatedName,
+        'description' => $validatedDescription,
         'capacity' => $capacity,
         'is_active' => true,
         'created_at' => gmdate('c'),
@@ -33,11 +33,12 @@ function create_room(string $name, string $description = '', int $capacity = 1):
 function update_room(string $roomId, array $data): bool {
     $updates = [];
     if (isset($data['name'])) {
-        $name = sanitize_text($data['name'], 64);
-        if ($name !== '') { $updates['name'] = $name; }
+        $validatedName = validate_user_input_text($data['name'], 64);
+        if ($validatedName !== null) { $updates['name'] = $validatedName; }
     }
     if (isset($data['description'])) {
-        $updates['description'] = sanitize_text($data['description'], 255);
+        $validatedDescription = validate_user_input_text($data['description'], 255);
+        if ($validatedDescription !== null) { $updates['description'] = $validatedDescription; }
     }
     if (isset($data['capacity'])) {
         $capacity = validate_int_range($data['capacity'], 1, 10);

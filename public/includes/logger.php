@@ -15,20 +15,42 @@ function app_log_path(): string {
     return app_log_dir() . '/app.log';
 }
 
+/**
+ * Get the current client IP address
+ * Handles various proxy scenarios and returns the most likely real IP
+ */
 function get_client_ip(): string {
-    $keys = ['HTTP_CLIENT_IP','HTTP_X_FORWARDED_FOR','REMOTE_ADDR'];
-    foreach ($keys as $k) {
-        if (!empty($_SERVER[$k])) {
-            $ip = (string)$_SERVER[$k];
-            if ($k === 'HTTP_X_FORWARDED_FOR') {
-                $parts = explode(',', $ip);
-                $ip = trim($parts[0]);
+    // Check for forwarded IP headers (common with proxies/load balancers)
+    $headers = [
+        'HTTP_CF_CONNECTING_IP', // Cloudflare
+        'HTTP_X_FORWARDED_FOR', // Standard proxy header
+        'HTTP_X_FORWARDED',     // Alternative proxy header
+        'HTTP_X_CLUSTER_CLIENT_IP', // Load balancer
+        'HTTP_FORWARDED_FOR',   // RFC 7239
+        'HTTP_FORWARDED',       // RFC 7239
+        'HTTP_X_REAL_IP',      // Nginx proxy
+        'HTTP_CLIENT_IP',      // Client IP
+    ];
+    
+    foreach ($headers as $header) {
+        if (!empty($_SERVER[$header])) {
+            $ip = $_SERVER[$header];
+            // Handle comma-separated IPs (take first one)
+            if (strpos($ip, ',') !== false) {
+                $ip = trim(explode(',', $ip)[0]);
             }
-            return $ip;
+            // Validate IP format
+            if (filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
+                return $ip;
+            }
         }
     }
-    return '0.0.0.0';
+    
+    // Fallback to REMOTE_ADDR
+    return $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
 }
+
+
 
 function log_event(string $type, string $message, array $context = []): void {
     $entry = [

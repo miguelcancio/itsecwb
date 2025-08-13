@@ -31,14 +31,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Invalid username and/or password';
         } else {
             reset_failed_attempts($user['id']);
-            record_login($user['id'], get_client_ip());
+            $currentIp = get_client_ip();
+            $currentTime = now_iso();
+            
+            // Try to update the database
+            record_login($user['id'], $currentIp);
+            
             $_SESSION['user'] = [
                 'id' => $user['id'],
                 'email' => $user['email'],
                 'role' => $user['role'],
-                'last_login_at' => $user['last_login_at'] ?? null,
-                'last_login_ip' => $user['last_login_ip'] ?? null,
+                'last_login_at' => $currentTime,
+                'last_login_ip' => $currentIp,
             ];
+            $_SESSION['show_login_info'] = true;
             log_event('auth_success', 'User logged in');
             switch ($user['role']) {
                 case 'admin': redirect('/admin/dashboard.php');
