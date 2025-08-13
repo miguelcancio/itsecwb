@@ -274,43 +274,7 @@ function update_user_security_question(string $userId, string $newQuestion, stri
     return $success;
 }
 
-function get_pending_reset_request(string $userId): ?array {
-    $rows = sb_get('password_reset_requests', [
-        'user_id' => $userId,
-        'status' => 'pending'
-    ], 1);
-    
-    return $rows[0] ?? null;
-}
 
-function request_password_reset(string $userId): ?array {
-    // Check if user already has a pending request
-    $existingRequest = get_pending_reset_request($userId);
-    if ($existingRequest) {
-        return null; // Already has pending request
-    }
-    
-    // Generate secure reset token
-    $resetToken = bin2hex(random_bytes(32));
-    $expiresAt = gmdate('c', time() + (24 * 60 * 60)); // 24 hours from now
-    
-    $request = sb_insert('password_reset_requests', [
-        'user_id' => $userId,
-        'status' => 'pending',
-        'reset_token' => $resetToken,
-        'expires_at' => $expiresAt,
-        'created_at' => now_iso()
-    ]);
-    
-    if ($request) {
-        log_event('password_reset_requested', 'Password reset requested', [
-            'user_id' => $userId,
-            'request_id' => $request['id'] ?? null
-        ]);
-    }
-    
-    return $request;
-}
 
 function reset_password_with_question(string $userId, string $newPassword): array {
     $user = get_user_by_id($userId);
@@ -357,11 +321,7 @@ function reset_password_with_question(string $userId, string $newPassword): arra
             'changed_at' => now_iso(),
         ]);
         
-        // Update any pending reset requests to completed
-        sb_update('password_reset_requests', 
-            ['user_id' => $userId, 'status' => 'pending'], 
-            ['status' => 'completed', 'admin_notes' => 'Completed via security question']
-        );
+
         
         log_event('password_reset_completed', 'Password reset completed via security question', [
             'user_id' => $userId
@@ -373,80 +333,7 @@ function reset_password_with_question(string $userId, string $newPassword): arra
     return [false, 'Failed to update password'];
 }
 
-function get_all_reset_requests(): array {
-    $rows = sb_get('password_reset_requests', [], 1000, 0, 'created_at DESC');
-    return $rows ?? [];
-}
 
-function approve_password_reset(string $requestId, string $adminNotes = ''): bool {
-    $request = sb_get('password_reset_requests', ['id' => $requestId], 1);
-    if (empty($request)) {
-        return false;
-    }
-    
-    $request = $request[0];
-    if ($request['status'] !== 'pending') {
-        return false;
-    }
-    
-    // Check if request is expired
-    if (!empty($request['expires_at']) && strtotime($request['expires_at']) < time()) {
-        return false;
-    }
-    
-    $updateData = [
-        'status' => 'approved',
-        'updated_at' => now_iso()
-    ];
-    
-    if (!empty($adminNotes)) {
-        $updateData['admin_notes'] = $adminNotes;
-    }
-    
-    $success = sb_update('password_reset_requests', ['id' => $requestId], $updateData);
-    
-    if ($success) {
-        log_event('password_reset_approved', 'Password reset request approved by admin', [
-            'request_id' => $requestId,
-            'user_id' => $request['user_id'],
-            'admin_notes' => $adminNotes
-        ]);
-    }
-    
-    return $success;
-}
-
-function deny_password_reset(string $requestId, string $adminNotes): bool {
-    if (empty($adminNotes)) {
-        return false; // Admin notes are required for denial
-    }
-    
-    $request = sb_get('password_reset_requests', ['id' => $requestId], 1);
-    if (empty($request)) {
-        return false;
-    }
-    
-    $request = $request[0];
-    if ($request['status'] !== 'pending') {
-        return false;
-    }
-    
-    $success = sb_update('password_reset_requests', ['id' => $requestId], [
-        'status' => 'denied',
-        'admin_notes' => $adminNotes,
-        'updated_at' => now_iso()
-    ]);
-    
-    if ($success) {
-        log_event('password_reset_denied', 'Password reset request denied by admin', [
-            'request_id' => $requestId,
-            'user_id' => $request['user_id'],
-            'admin_notes' => $adminNotes
-        ]);
-    }
-    
-    return $success;
-}
 
 function get_password_history_hashes(string $userId, int $limit = 100): array {
     $rows = sb_get('password_history', ['user_id' => $userId], $limit, 0);
@@ -528,66 +415,7 @@ function get_users_without_security_questions(): array {
     return $usersWithoutQuestions;
 }
 
-function bulk_set_security_questions(array $userIds, string $securityQuestion, string $securityAnswer): array {
-    if (empty($userIds) || empty($securityQuestion) || empty($securityAnswer)) {
-        return ['success' => false, 'message' => 'Invalid input parameters'];
-    }
-    
-    // Validate security question and answer lengths
-    if (mb_strlen($securityQuestion) < 10) {
-        return ['success' => false, 'message' => 'Security question must be at least 10 characters'];
-    }
-    
-    // Validate security answer using the new validation function
-    $validatedAnswer = validate_security_answer($securityAnswer);
-    if (!$validatedAnswer) {
-        return ['success' => false, 'message' => 'Security answer does not meet security requirements'];
-    }
-    
-    $securityAnswerHash = password_hash($validatedAnswer, PASSWORD_DEFAULT);
-    $successCount = 0;
-    $failedCount = 0;
-    $failedUsers = [];
-    
-    foreach ($userIds as $userId) {
-        $user = get_user_by_id($userId);
-        if ($user && !has_security_question($userId)) {
-            $success = sb_update('users', ['id' => $userId], [
-                'security_question' => $securityQuestion,
-                'security_answer_hash' => $securityAnswerHash,
-                'updated_at' => now_iso()
-            ]);
-            
-            if ($success) {
-                $successCount++;
-                log_event('bulk_security_question_set', 'Security question set via bulk operation', [
-                    'user_id' => $userId,
-                    'admin_operation' => true
-                ]);
-            } else {
-                $failedCount++;
-                $failedUsers[] = $user['email'];
-            }
-        } else {
-            $failedCount++;
-            $failedUsers[] = $user['email'] ?? 'Unknown';
-        }
-    }
-    
-    $result = [
-        'success' => $successCount > 0,
-        'success_count' => $successCount,
-        'failed_count' => $failedCount,
-        'failed_users' => $failedUsers,
-        'message' => "Successfully set security questions for {$successCount} users"
-    ];
-    
-    if ($failedCount > 0) {
-        $result['message'] .= ", {$failedCount} users failed";
-    }
-    
-    return $result;
-}
+
 
 function get_security_question_statistics(): array {
     $allUsers = list_users();

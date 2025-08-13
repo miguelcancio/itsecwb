@@ -63,11 +63,7 @@ include __DIR__ . '/../includes/header.php';
       <p>Configure dormitory rooms and availability</p>
     </a>
     
-    <a href="/admin/manage_password_resets.php" class="action-card">
-      <div class="action-icon">🔐</div>
-      <h4>Password Resets</h4>
-      <p>Review and manage password reset requests</p>
-    </a>
+
     
     <a href="/admin/change_password.php" class="action-card">
       <div class="action-icon">🔒</div>
@@ -115,7 +111,6 @@ include __DIR__ . '/../includes/header.php';
   </div>
   <div class="alert-actions">
     <a href="/admin/manage_users.php" class="btn">Manage Users</a>
-    <a href="/admin/manage_users.php#bulk-section" class="btn secondary">Bulk Set Security Q</a>
   </div>
 </div>
 <?php endif; ?>
@@ -319,28 +314,37 @@ include __DIR__ . '/../includes/header.php';
 
 .status-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 20px;
   margin-top: 20px;
 }
 
 .status-item {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
-  background: #f8fafc;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  flex-direction: column;
+  gap: 8px;
+  padding: 20px;
+  background: white;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+  min-height: 80px;
+  justify-content: center;
 }
 
 .status-label {
   font-weight: 600;
-  color: #374151;
+  color: #6b7280;
+  font-size: 14px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .status-value {
-  font-weight: 500;
+  font-weight: 600;
+  font-size: 16px;
+  color: #374151;
+  word-break: break-word;
+  line-height: 1.4;
 }
 
 .status-ok {
@@ -362,6 +366,12 @@ include __DIR__ . '/../includes/header.php';
   
   .status-grid {
     grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  
+  .status-item {
+    padding: 16px;
+    min-height: 70px;
   }
   
   .reminder-header,
