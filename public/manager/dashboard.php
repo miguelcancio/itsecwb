@@ -24,6 +24,18 @@ include __DIR__ . '/../includes/header.php';
       <p>View and manage dorm reservations</p>
     </a>
     
+    <a href="/manager/manage_rooms.php" class="action-card">
+      <div class="action-icon">🏠</div>
+      <h4>Manage Rooms</h4>
+      <p>Add, edit, and remove dorm rooms</p>
+    </a>
+    
+    <a href="/manager/manage_customers.php" class="action-card">
+      <div class="action-icon">👥</div>
+      <h4>Manage Customers</h4>
+      <p>View and manage customer accounts</p>
+    </a>
+    
     <a href="/manager/change_password.php" class="action-card">
       <div class="action-icon">🔒</div>
       <h4>Change Password</h4>

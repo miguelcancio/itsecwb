@@ -300,6 +300,8 @@ $user = $_SESSION['user'] ?? null;
       <?php elseif ($user['role'] === 'manager'): ?>
         <a href="/manager/dashboard.php">Manager Dashboard</a>
         <a href="/manager/manage_reservations.php">Reservations</a>
+        <a href="/manager/manage_rooms.php">Rooms</a>
+        <a href="/manager/manage_customers.php">Customers</a>
       <?php elseif ($user['role'] === 'customer'): ?>
         <a href="/customer/my_reservations.php">My Reservations</a>
       <?php endif; ?>

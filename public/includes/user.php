@@ -462,6 +462,12 @@ function list_users(): array {
 }
 
 function update_user_role(string $userId, string $role): bool {
+    // Validate role
+    $validRoles = ['customer', 'manager', 'admin'];
+    if (!in_array($role, $validRoles, true)) {
+        return false;
+    }
+    
     return sb_update('users', ['id' => $userId], ['role' => $role, 'updated_at' => now_iso()]);
 }
 
@@ -567,5 +573,27 @@ function get_security_question_statistics(): array {
         'is_complete' => $usersWithoutQuestions === 0
     ];
 }
+
+// Manager functions for managing customers (Role B users)
+function get_users_by_role(string $role): array {
+    return sb_get('users', ['role' => $role], 1000, 0, '*');
+}
+
+function update_user_status(string $userId, bool $isActive): bool {
+    $data = [
+        'is_disabled' => !$isActive,
+        'updated_at' => now_iso()
+    ];
+    
+    if ($isActive) {
+        // If activating, also reset any lock status
+        $data['locked_until'] = null;
+        $data['failed_attempts'] = 0;
+    }
+    
+    return sb_update('users', ['id' => $userId], $data);
+}
+
+
 
 

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/role_check.php';
-require_role(['customer','manager','admin']);
+require_role(['customer']);
 include __DIR__ . '/../includes/header.php';
 ?>
   <section class="hero">

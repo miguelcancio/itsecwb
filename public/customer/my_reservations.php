@@ -1,15 +1,12 @@
 <?php
 declare(strict_types=1);
 
-// Enable debug mode for troubleshooting
-if (!defined('APP_DEBUG')) {
-    define('APP_DEBUG', true);
-}
+
 
 require_once __DIR__ . '/../includes/role_check.php';
 require_once __DIR__ . '/../includes/reservation.php';
 require_once __DIR__ . '/../includes/room.php';
-require_role(['customer','manager','admin']);
+require_role(['customer']);
 
 $msg = null; 
 $err = null;
@@ -38,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $to = $_POST['date_to'] ?? '';
         
         if ($roomId && $from && $to) {
-            error_log("Attempting to create reservation: Room ID: $roomId, From: $from, To: $to, User: " . $_SESSION['user']['id']);
+
             
             $rec = create_reservation($_SESSION['user']['id'], $roomId, $from, $to);
             if ($rec) {
@@ -47,15 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 header('Location: ' . $_SERVER['PHP_SELF'] . '?msg=' . urlencode('Reservation created successfully!'));
                 exit;
             } else {
-                $debug = debug_room_availability($roomId, $from, $to);
-                error_log("Reservation failed. Debug info: " . json_encode($debug));
-                
-                $err = 'Room not available on selected dates. ';
-                if (!empty($debug['conflicts']['by_room_id']) || !empty($debug['conflicts']['by_room_name'])) {
-                    $err .= 'Conflicts found with existing reservations.';
-                } else {
-                    $err .= 'Please check your dates.';
-                }
+                $err = 'Room not available on selected dates. Please check your dates.';
             }
         } else {
             $err = 'Please select room and dates';
@@ -85,11 +74,7 @@ $roomAvailability = null;
 if ($selectedRoomId) {
     $roomAvailability = get_room_availability_calendar($selectedRoomId, $selectedMonth, $selectedYear);
     
-    // Debug: Test the function directly
-    if (defined('APP_DEBUG') && APP_DEBUG) {
-        error_log("Testing room availability for room ID: $selectedRoomId, month: $selectedMonth, year: $selectedYear");
-        error_log("Result: " . json_encode($roomAvailability));
-    }
+
 }
 
 include __DIR__ . '/../includes/header.php';
@@ -341,10 +326,8 @@ include __DIR__ . '/../includes/header.php';
 
 <script>
 function changeRoom(roomId) {
-    console.log('changeRoom called with:', roomId);
     if (roomId) {
         const url = '?room_id=' + encodeURIComponent(roomId);
-        console.log('Redirecting to:', url);
         window.location.href = url;
     }
 }
@@ -376,12 +359,7 @@ function testRoomSelection() {
     }
 }
 
-// Debug: Log when page loads
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('Page loaded');
-    console.log('Current URL:', window.location.href);
-    console.log('Room selector value:', document.getElementById('roomSelector').value);
-});
+
 </script>
 
 <style>
@@ -443,7 +421,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .status-approved { color: #155724; background: #d4edda; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 .status-rejected { color: #721c24; background: #f8d7da; padding: 2px 6px; border-radius: 4px; font-size: 12px; }
 
-.debug-info { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 4px; font-family: monospace; font-size: 12px; }
+
 
 @media (max-width: 768px) {
     .form-row { flex-direction: column; }

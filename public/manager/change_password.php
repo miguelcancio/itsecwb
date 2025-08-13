@@ -25,11 +25,17 @@ include __DIR__ . '/../includes/header.php';
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token()); ?>">
       <div>
         <label>Current password</label><br>
-        <input type="password" name="current_password" required>
+        <div class="password-field">
+          <input type="password" name="current_password" id="current_password" required>
+          <button class="password-toggle" type="button" onclick="togglePassword('current_password', this)">👁️</button>
+        </div>
       </div>
       <div>
         <label>New password</label><br>
-        <input type="password" name="new_password" required minlength="12" maxlength="128">
+        <div class="password-field">
+          <input type="password" name="new_password" id="new_password" required minlength="12" maxlength="128">
+          <button class="password-toggle" type="button" onclick="togglePassword('new_password', this)">👁️</button>
+        </div>
       </div>
       <button class="btn" type="submit">Update</button>
     </form>
@@ -121,5 +127,15 @@ include __DIR__ . '/../includes/header.php';
 </style>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
+
+<script>
+function togglePassword(id, btn) {
+  const input = document.getElementById(id);
+  if (!input) return;
+  const isPwd = input.getAttribute('type') === 'password';
+  input.setAttribute('type', isPwd ? 'text' : 'password');
+  btn.textContent = isPwd ? '🙈' : '👁️';
+}
+</script>
 
 
