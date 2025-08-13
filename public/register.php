@@ -81,10 +81,11 @@ include __DIR__ . '/includes/header.php';
         <?php endif; ?>
       </div>
       
-      <div class="form-group <?php echo isset($fieldErrors['password']) ? 'has-error' : ''; ?>">
+      <div class="form-group <?php echo isset($fieldErrors['password']) ? 'has-error' : ''; ?> password-field">
         <label for="password">Password</label>
         <input type="password" id="password" name="password" required minlength="12" maxlength="128" 
                autocomplete="new-password" placeholder="Create a strong password">
+        <button class="password-toggle" type="button" aria-label="Toggle password" onclick="(function(btn){var i=document.getElementById('password'); if(i.type==='password'){ i.type='text'; btn.textContent='🙈'; } else { i.type='password'; btn.textContent='👁'; }})(this)">👁</button>
         <?php if (isset($fieldErrors['password'])): ?>
           <span class="field-error"><?php echo htmlspecialchars($fieldErrors['password']); ?></span>
         <?php endif; ?>

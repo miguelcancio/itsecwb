@@ -131,7 +131,7 @@ include __DIR__ . '/includes/header.php';
     </form>
     
     <div class="form-links">
-        <a href="/login.php">Back to Login</a>
+        <a href="/index.php">Back to Login</a>
     </div>
 </div>
 
@@ -207,7 +207,7 @@ include __DIR__ . '/includes/header.php';
     <p>Your password has been reset successfully. You can now log in with your new password.</p>
     
     <div class="success-actions">
-        <a href="/login.php" class="btn btn-large">Go to Login</a>
+        <a href="/index.php" class="btn btn-large">Go to Login</a>
     </div>
 </div>
 <?php endif; ?>
@@ -227,7 +227,7 @@ include __DIR__ . '/includes/header.php';
             <span class="help-icon">🔒</span>
             <div>
                 <strong>Remember your password?</strong>
-                <p><a href="/login.php">Go back to login</a> instead.</p>
+                <p><a href="/index.php">Go back to login</a> instead.</p>
             </div>
         </div>
     </div>

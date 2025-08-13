@@ -309,7 +309,7 @@ $user = $_SESSION['user'] ?? null;
       <a href="/<?php echo htmlspecialchars($user['role']); ?>/change_password.php">Change Password</a>
       <a href="/logout.php" class="btn secondary">Logout</a>
     <?php else: ?>
-      <a href="/login.php">Login</a>
+      <a href="/index.php">Login</a>
       <a href="/register.php" class="btn">Register</a>
     <?php endif; ?>
   </nav>

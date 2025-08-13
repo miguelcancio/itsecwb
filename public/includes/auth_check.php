@@ -10,7 +10,7 @@ if (session_status() !== PHP_SESSION_ACTIVE) {
 
 if (empty($_SESSION['user'])) {
     log_event('access_control_fail', 'Unauthenticated access');
-    redirect('/login.php');
+    redirect('/index.php');
 }
 
 
