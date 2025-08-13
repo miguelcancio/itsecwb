@@ -58,17 +58,27 @@ function record_login(string $userId, string $ip): bool {
     return $result;
 }
 
-function create_user(string $email, string $password, string $role = 'customer'): ?array {
+function create_user(string $email, string $password, string $role = 'customer'): array {
+    // Validate email
     $emailValid = validate_email($email);
-    $passValid = validate_password($password);
-    if (!$emailValid || !$passValid) {
-        return null;
+    if (!$emailValid) {
+        return ['success' => false, 'error_code' => 'INVALID_EMAIL', 'message' => 'Please enter a valid email address (e.g., user@example.com)'];
     }
+    
+    // Validate password
+    $passValid = validate_password($password);
+    if (!$passValid) {
+        return ['success' => false, 'error_code' => 'WEAK_PASSWORD', 'message' => 'Password must be at least 12 characters with uppercase, lowercase, number, and special character'];
+    }
+    
+    // Check if user already exists
     $userExisting = get_user_by_email($emailValid);
     if ($userExisting) {
         log_event('auth_fail', 'Registration email already exists', ['email' => $emailValid]);
-        return null;
+        return ['success' => false, 'error_code' => 'EMAIL_EXISTS', 'message' => 'An account with this email address already exists. Please use a different email or try logging in.'];
     }
+    
+    // Create user
     $passwordHash = password_hash($passValid, PASSWORD_DEFAULT);
     $user = sb_insert('users', [
         'email' => $emailValid,
@@ -81,43 +91,69 @@ function create_user(string $email, string $password, string $role = 'customer')
         'updated_at' => now_iso(),
         'is_disabled' => false
     ]);
+    
     if ($user && !empty($user['id'])) {
         sb_insert('password_history', [
             'user_id' => $user['id'],
             'password_hash' => $passwordHash,
             'changed_at' => now_iso(),
         ]);
+        
+        log_event('user_created', 'User created successfully', [
+            'user_id' => $user['id'],
+            'email' => $emailValid,
+            'role' => $role
+        ]);
+        
+        return ['success' => true, 'user' => $user];
     }
-    return $user ?: null;
+    
+    // Database insertion failed
+    log_event('system_error', 'Failed to create user in database', ['email' => $emailValid]);
+    return ['success' => false, 'error_code' => 'DATABASE_ERROR', 'message' => 'Unable to create account at this time. Please try again later.'];
 }
 
-function create_user_with_security_question(string $email, string $password, string $role, string $securityQuestion, string $securityAnswer): ?array {
+function create_user_with_security_question(string $email, string $password, string $role, string $securityQuestion, string $securityAnswer): array {
+    // Validate email
     $emailValid = validate_email($email);
+    if (!$emailValid) {
+        return ['success' => false, 'error_code' => 'INVALID_EMAIL', 'message' => 'Please enter a valid email address (e.g., user@example.com)'];
+    }
+    
+    // Validate password
     $passValid = validate_password($password);
-    
-    // Validate security question and answer
-    if (!$emailValid || !$passValid || !$securityQuestion || !$securityAnswer) {
-        return null;
+    if (!$passValid) {
+        return ['success' => false, 'error_code' => 'WEAK_PASSWORD', 'message' => 'Password must be at least 12 characters with uppercase, lowercase, number, and special character'];
     }
     
-    // Validate security question and answer using new validation functions
+    // Validate security question
+    if (empty($securityQuestion)) {
+        return ['success' => false, 'error_code' => 'EMPTY_SECURITY_QUESTION', 'message' => 'Security question is required'];
+    }
+    
     $validatedQuestion = validate_security_question_text($securityQuestion);
-    $validatedAnswer = validate_security_answer($securityAnswer);
-    
-    if (!$validatedQuestion || !$validatedAnswer) {
-        log_event('validation_fail', 'Security question or answer validation failed', [
-            'question_valid' => $validatedQuestion !== null,
-            'answer_valid' => $validatedAnswer !== null
-        ]);
-        return null;
+    if (!$validatedQuestion) {
+        return ['success' => false, 'error_code' => 'WEAK_SECURITY_QUESTION', 'message' => 'Security question must be at least 10 characters long'];
     }
     
+    // Validate security answer
+    if (empty($securityAnswer)) {
+        return ['success' => false, 'error_code' => 'EMPTY_SECURITY_ANSWER', 'message' => 'Security answer is required'];
+    }
+    
+    $validatedAnswer = validate_security_answer($securityAnswer);
+    if (!$validatedAnswer) {
+        return ['success' => false, 'error_code' => 'WEAK_SECURITY_ANSWER', 'message' => 'Security answer is too common. Please choose a more unique answer'];
+    }
+    
+    // Check if user already exists
     $userExisting = get_user_by_email($emailValid);
     if ($userExisting) {
         log_event('auth_fail', 'Registration email already exists', ['email' => $emailValid]);
-        return null;
+        return ['success' => false, 'error_code' => 'EMAIL_EXISTS', 'message' => 'An account with this email address already exists. Please use a different email or try logging in.'];
     }
     
+    // Create user
     $passwordHash = password_hash($passValid, PASSWORD_DEFAULT);
     $securityAnswerHash = password_hash($validatedAnswer, PASSWORD_DEFAULT);
     
@@ -147,9 +183,13 @@ function create_user_with_security_question(string $email, string $password, str
             'email' => $emailValid,
             'role' => $role
         ]);
+        
+        return ['success' => true, 'user' => $user];
     }
     
-    return $user ?: null;
+    // Database insertion failed
+    log_event('system_error', 'Failed to create user in database', ['email' => $emailValid]);
+    return ['success' => false, 'error_code' => 'DATABASE_ERROR', 'message' => 'Unable to create account at this time. Please try again later.'];
 }
 
 function verify_security_answer(string $userId, string $answer): bool {
