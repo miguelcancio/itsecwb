@@ -2,7 +2,7 @@
 </div>
 <footer>
   <small>&copy; <?php echo date('Y'); ?> Dorm Reservation</small>
-  
+    
 </footer>
 </body>
 </html>
