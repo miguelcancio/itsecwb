@@ -320,6 +320,7 @@ function get_reservation_with_room(string $reservationId): ?array {
 function list_reservations_with_rooms(): array {
     $reservations = list_all_reservations();
     require_once __DIR__ . '/room.php';
+    require_once __DIR__ . '/user.php';
     
     foreach ($reservations as &$reservation) {
         // Handle both old room text and new room_id
@@ -336,6 +337,18 @@ function list_reservations_with_rooms(): array {
             $reservation['room_description'] = 'Legacy room';
             $reservation['room_capacity'] = 1;
         }
+        
+        // Add user email information
+        if (!empty($reservation['user_id'])) {
+            $user = get_user_by_id($reservation['user_id']);
+            if ($user) {
+                $reservation['user_email'] = $user['email'];
+            } else {
+                $reservation['user_email'] = 'Unknown User';
+            }
+        } else {
+            $reservation['user_email'] = 'No User ID';
+        }
     }
     
     return $reservations;
@@ -344,6 +357,7 @@ function list_reservations_with_rooms(): array {
 function get_user_reservations_with_rooms(string $userId): array {
     $reservations = list_reservations_for_user($userId);
     require_once __DIR__ . '/room.php';
+    require_once __DIR__ . '/user.php';
     
     foreach ($reservations as &$reservation) {
         // Handle both old room text and new room_id
@@ -359,6 +373,18 @@ function get_user_reservations_with_rooms(string $userId): array {
             $reservation['room_name'] = $reservation['room'];
             $reservation['room_description'] = 'Legacy room';
             $reservation['room_capacity'] = 1;
+        }
+        
+        // Add user email information
+        if (!empty($reservation['user_id'])) {
+            $user = get_user_by_id($reservation['user_id']);
+            if ($user) {
+                $reservation['user_email'] = $user['email'];
+            } else {
+                $reservation['user_email'] = 'Unknown User';
+            }
+        } else {
+            $reservation['user_email'] = 'No User ID';
         }
     }
     

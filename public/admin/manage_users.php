@@ -43,25 +43,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             $error = 'Invalid input';
         }
-    } elseif ($action === 'bulk_set_security_questions') {
-        $userIds = $_POST['user_ids'] ?? [];
-        $securityQuestion = trim($_POST['bulk_security_question'] ?? '');
-        $securityAnswer = trim($_POST['bulk_security_answer'] ?? '');
+    } elseif ($action === 'change_role') {
+        $userId = $_POST['user_id'] ?? '';
+        $newRole = $_POST['new_role'] ?? '';
         
-        if (!empty($userIds) && $securityQuestion && $securityAnswer) {
-            $successCount = 0;
-            foreach ($userIds as $userId) {
-                if (update_user_security_question($userId, $securityQuestion, $securityAnswer)) {
-                    $successCount++;
-                }
+        if ($userId && $newRole) {
+            if (update_user_role($userId, $newRole)) {
+                $message = 'User role updated successfully';
+                log_event('admin_role_change', 'Admin changed user role', [
+                    'admin_id' => $_SESSION['user']['id'],
+                    'user_id' => $userId,
+                    'new_role' => $newRole
+                ]);
+            } else {
+                $error = 'Failed to update user role';
             }
-            $message = "Security questions set for {$successCount} users";
-            log_event('admin_bulk_security_questions', 'Admin bulk set security questions', [
-                'admin_id' => $_SESSION['user']['id'],
-                'user_count' => $successCount
-            ]);
         } else {
-            $error = 'Invalid input for bulk operation';
+            $error = 'Invalid input for role change';
         }
     }
 }
@@ -150,47 +148,7 @@ include __DIR__ . '/../includes/header.php';
     </form>
 </div>
 
-<?php if (!empty($usersWithoutQuestions)): ?>
-<div class="card">
-    <h3>Bulk Set Security Questions</h3>
-    <p>Set the same security question for multiple users who don't have one.</p>
-    
-    <form method="post" novalidate class="bulk-form">
-        <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token()); ?>">
-        <input type="hidden" name="action" value="bulk_set_security_questions">
-        
-        <div class="form-row">
-            <div class="form-group">
-                <label>Security Question</label>
-                <input type="text" name="bulk_security_question" placeholder="e.g., What was your first pet's name?" required maxlength="255">
-                <small>This question will be set for all selected users</small>
-            </div>
-            <div class="form-group">
-                <label>Security Answer</label>
-                <input type="text" name="bulk_security_answer" placeholder="Your answer to the security question" required maxlength="255">
-                <small>This answer will be set for all selected users</small>
-            </div>
-        </div>
-        
-        <div class="user-selection">
-            <label>Select Users:</label>
-            <div class="user-checkboxes">
-                <?php foreach ($usersWithoutQuestions as $user): ?>
-                    <label class="user-checkbox">
-                        <input type="checkbox" name="user_ids[]" value="<?php echo htmlspecialchars($user['id']); ?>">
-                        <span class="user-info">
-                            <strong><?php echo htmlspecialchars($user['email']); ?></strong>
-                            <small><?php echo htmlspecialchars($user['role']); ?></small>
-                        </span>
-                    </label>
-                <?php endforeach; ?>
-            </div>
-        </div>
-        
-        <button class="btn btn-large" type="submit">Set Security Questions for Selected Users</button>
-    </form>
-</div>
-<?php endif; ?>
+
 
 <div class="card">
     <h3>User List</h3>
@@ -277,6 +235,32 @@ include __DIR__ . '/../includes/header.php';
     </div>
 </div>
 
+<!-- Role Change Modal -->
+<div id="roleModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Change User Role</h3>
+        <p>Changing role for user ID: <strong id="roleModalCurrentRole"></strong></p>
+        
+        <div class="form-group">
+            <label for="newRoleSelect">New Role:</label>
+            <select id="newRoleSelect" class="form-control">
+                <option value="customer">Customer</option>
+                <option value="manager">Manager</option>
+                <option value="admin">Admin</option>
+            </select>
+            <small>Select the new role for this user</small>
+        </div>
+        
+        <div class="modal-actions">
+            <button class="btn btn-large" onclick="submitRoleChange()">Change Role</button>
+            <button class="btn btn-large secondary" onclick="document.getElementById('roleModal').style.display = 'none'">Cancel</button>
+        </div>
+        
+        <input type="hidden" id="roleModalUserId" value="">
+    </div>
+</div>
+
 <style>
 .security-overview {
     margin: 20px 0;
@@ -338,7 +322,7 @@ include __DIR__ . '/../includes/header.php';
     opacity: 0.9;
 }
 
-.create-user-form, .bulk-form {
+.create-user-form {
     max-width: 800px;
 }
 
@@ -347,6 +331,11 @@ include __DIR__ . '/../includes/header.php';
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
     gap: 20px;
     margin-bottom: 20px;
+}
+
+.form-row:last-of-type {
+    grid-template-columns: 1fr 1fr;
+    max-width: 100%;
 }
 
 .form-group {
@@ -362,6 +351,8 @@ include __DIR__ . '/../includes/header.php';
 
 .form-group input, .form-group select {
     width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
     padding: 12px 16px;
     border: 2px solid #e5e7eb;
     border-radius: 8px;
@@ -375,63 +366,7 @@ include __DIR__ . '/../includes/header.php';
     color: #6b7280;
 }
 
-.user-selection {
-    margin: 20px 0;
-    padding: 20px;
-    background: #f8fafc;
-    border-radius: 8px;
-    border: 1px solid #e5e7eb;
-}
 
-.user-selection label {
-    display: block;
-    margin-bottom: 16px;
-    font-weight: 600;
-    color: #374151;
-}
-
-.user-checkboxes {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 12px;
-}
-
-.user-checkbox {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 12px;
-    background: white;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.user-checkbox:hover {
-    background: #f9fafb;
-    border-color: #d1d5db;
-}
-
-.user-checkbox input[type="checkbox"] {
-    width: auto;
-    margin: 0;
-}
-
-.user-info {
-    display: flex;
-    flex-direction: column;
-}
-
-.user-info strong {
-    color: #374151;
-    font-size: 14px;
-}
-
-.user-info small {
-    color: #6b7280;
-    font-size: 12px;
-}
 
 .table-container {
     overflow-x: auto;
@@ -575,6 +510,32 @@ include __DIR__ . '/../includes/header.php';
     margin-top: 20px;
 }
 
+.modal-actions {
+    display: flex;
+    gap: 12px;
+    justify-content: flex-end;
+    margin-top: 24px;
+}
+
+.modal-actions .btn {
+    min-width: 100px;
+}
+
+#newRoleSelect {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 16px;
+    background: white;
+}
+
+#newRoleSelect:focus {
+    outline: none;
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
 .success {
     background: #f0fdf4;
     border: 1px solid #bbf7d0;
@@ -602,9 +563,7 @@ include __DIR__ . '/../includes/header.php';
         grid-template-columns: 1fr;
     }
     
-    .user-checkboxes {
-        grid-template-columns: 1fr;
-    }
+
     
     .action-buttons {
         flex-direction: column;
@@ -624,25 +583,66 @@ function openSecurityModal(userId, userEmail) {
     document.getElementById('securityModal').style.display = 'block';
 }
 
-// Close modal when clicking on X
-document.querySelector('.close').onclick = function() {
-    document.getElementById('securityModal').style.display = 'none';
-}
-
-// Close modal when clicking outside of it
-window.onclick = function(event) {
-    const modal = document.getElementById('securityModal');
-    if (event.target == modal) {
-        modal.style.display = 'none';
+// Close modals when clicking on X
+document.querySelectorAll('.close').forEach(function(closeBtn) {
+    closeBtn.onclick = function() {
+        this.closest('.modal').style.display = 'none';
     }
+});
+
+// Close modals when clicking outside of them
+window.onclick = function(event) {
+    const modals = document.querySelectorAll('.modal');
+    modals.forEach(function(modal) {
+        if (event.target == modal) {
+            modal.style.display = 'none';
+        }
+    });
 }
 
 function changeRole(userId, currentRole) {
-    const newRole = prompt(`Change role for user ${userId} from ${currentRole} to:`, currentRole);
+    // Set the current role and user ID in the modal
+    document.getElementById('roleModalUserId').value = userId;
+    document.getElementById('roleModalCurrentRole').textContent = userId;
+    
+    // Set the current role as selected in dropdown
+    document.getElementById('newRoleSelect').value = currentRole;
+    
+    // Show the modal
+    document.getElementById('roleModal').style.display = 'block';
+}
+
+function submitRoleChange() {
+    const userId = document.getElementById('roleModalUserId').value;
+    const newRole = document.getElementById('newRoleSelect').value;
+    const currentRole = document.getElementById('roleModalCurrentRole').textContent;
+    
     if (newRole && newRole !== currentRole) {
-        // Implement role change functionality
-        alert('Role change functionality to be implemented');
+        // Create form data
+        const formData = new FormData();
+        formData.append('action', 'change_role');
+        formData.append('user_id', userId);
+        formData.append('new_role', newRole);
+        formData.append('csrf_token', document.querySelector('input[name="csrf_token"]').value);
+        
+        // Submit the form
+        fetch(window.location.href, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.text())
+        .then(() => {
+            // Reload the page to show updated role
+            window.location.reload();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Failed to change role. Please try again.');
+        });
     }
+    
+    // Close the modal
+    document.getElementById('roleModal').style.display = 'none';
 }
 
 function toggleUser(userId, disable) {
