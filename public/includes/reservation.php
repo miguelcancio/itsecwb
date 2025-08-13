@@ -280,8 +280,11 @@ function create_reservation(string $userId, string $roomId, string $dateFrom, st
 }
 
 function update_reservation_status(string $reservationId, string $status): bool {
-    $status = sanitize_text($status, 32);
-    return sb_update('reservations', ['id' => $reservationId], ['status' => $status, 'updated_at' => gmdate('c')]);
+    $validatedStatus = validate_user_input_text($status, 32);
+    if (!$validatedStatus) {
+        return false;
+    }
+    return sb_update('reservations', ['id' => $reservationId], ['status' => $validatedStatus, 'updated_at' => gmdate('c')]);
 }
 
 function delete_reservation(string $reservationId, string $userId): bool {

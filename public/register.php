@@ -20,8 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $error = 'Please provide a valid email, strong password, and security question with answer.';
     } elseif (mb_strlen($securityQuestion) < 10) {
         $error = 'Security question must be at least 10 characters long.';
-    } elseif (mb_strlen($securityAnswer) < 3) {
-        $error = 'Security answer must be at least 3 characters long.';
     } else {
         $user = create_user_with_security_question($email, $password, 'customer', $securityQuestion, $securityAnswer);
         if ($user) {
@@ -80,7 +78,7 @@ include __DIR__ . '/includes/header.php';
                placeholder="Your answer to the security question" 
                value="<?php echo htmlspecialchars($_POST['security_answer'] ?? ''); ?>">
         <small class="answer-help">
-          This answer will be used to verify your identity for password recovery. Minimum 3 characters.
+          This answer will be used to verify your identity for password recovery. Must be meaningful and not easily guessable.
         </small>
       </div>
       

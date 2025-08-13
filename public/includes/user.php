@@ -41,11 +41,21 @@ function reset_failed_attempts(string $userId): void {
     sb_update('users', ['id' => $userId], ['failed_attempts' => 0, 'locked_until' => null]);
 }
 
-function record_login(string $userId, string $ip): void {
-    sb_update('users', ['id' => $userId], [
+function record_login(string $userId, string $ip): bool {
+    $result = sb_update('users', ['id' => $userId], [
         'last_login_at' => now_iso(),
         'last_login_ip' => $ip
     ]);
+    
+    // Log the result for debugging
+    log_event('login_update', 'Database update result', [
+        'user_id' => $userId,
+        'ip' => $ip,
+        'success' => $result,
+        'timestamp' => now_iso()
+    ]);
+    
+    return $result;
 }
 
 function create_user(string $email, string $password, string $role = 'customer'): ?array {
@@ -90,17 +100,15 @@ function create_user_with_security_question(string $email, string $password, str
         return null;
     }
     
-    // Trim and validate security question length
-    $securityQuestion = trim($securityQuestion);
-    $securityAnswer = trim($securityAnswer);
+    // Validate security question and answer using new validation functions
+    $validatedQuestion = validate_security_question_text($securityQuestion);
+    $validatedAnswer = validate_security_answer($securityAnswer);
     
-    if (mb_strlen($securityQuestion) > 255 || mb_strlen($securityAnswer) > 255) {
-        log_event('validation_fail', 'Security question or answer too long');
-        return null;
-    }
-    
-    if (mb_strlen($securityQuestion) < 10) {
-        log_event('validation_fail', 'Security question too short');
+    if (!$validatedQuestion || !$validatedAnswer) {
+        log_event('validation_fail', 'Security question or answer validation failed', [
+            'question_valid' => $validatedQuestion !== null,
+            'answer_valid' => $validatedAnswer !== null
+        ]);
         return null;
     }
     
@@ -111,13 +119,13 @@ function create_user_with_security_question(string $email, string $password, str
     }
     
     $passwordHash = password_hash($passValid, PASSWORD_DEFAULT);
-    $securityAnswerHash = password_hash($securityAnswer, PASSWORD_DEFAULT);
+    $securityAnswerHash = password_hash($validatedAnswer, PASSWORD_DEFAULT);
     
     $user = sb_insert('users', [
         'email' => $emailValid,
         'password_hash' => $passwordHash,
         'role' => $role,
-        'security_question' => $securityQuestion,
+        'security_question' => $validatedQuestion,
         'security_answer_hash' => $securityAnswerHash,
         'failed_attempts' => 0,
         'locked_until' => null,
@@ -195,12 +203,19 @@ function update_user_security_question(string $userId, string $newQuestion, stri
     }
     
     // Validate input lengths
-    if (mb_strlen($newQuestion) < 10 || mb_strlen($newAnswer) < 3) {
+    if (mb_strlen($newQuestion) < 10) {
+        return false;
+    }
+    
+    // Validate security answer using the new validation function
+    $validatedAnswer = validate_security_answer($newAnswer);
+    if (!$validatedAnswer) {
+        log_event('validation_fail', 'Security answer validation failed during update', ['user_id' => $userId]);
         return false;
     }
     
     // Hash the new security answer
-    $newAnswerHash = password_hash($newAnswer, PASSWORD_DEFAULT);
+    $newAnswerHash = password_hash($validatedAnswer, PASSWORD_DEFAULT);
     
     // Update the user's security question and answer
     $success = sb_update('users', ['id' => $userId], [
@@ -473,11 +488,17 @@ function bulk_set_security_questions(array $userIds, string $securityQuestion, s
     }
     
     // Validate security question and answer lengths
-    if (mb_strlen($securityQuestion) < 10 || mb_strlen($securityAnswer) < 3) {
-        return ['success' => false, 'message' => 'Security question must be at least 10 characters and answer at least 3 characters'];
+    if (mb_strlen($securityQuestion) < 10) {
+        return ['success' => false, 'message' => 'Security question must be at least 10 characters'];
     }
     
-    $securityAnswerHash = password_hash($securityAnswer, PASSWORD_DEFAULT);
+    // Validate security answer using the new validation function
+    $validatedAnswer = validate_security_answer($securityAnswer);
+    if (!$validatedAnswer) {
+        return ['success' => false, 'message' => 'Security answer does not meet security requirements'];
+    }
+    
+    $securityAnswerHash = password_hash($validatedAnswer, PASSWORD_DEFAULT);
     $successCount = 0;
     $failedCount = 0;
     $failedUsers = [];
