@@ -130,14 +130,28 @@ function validate_security_question_text(?string $input): ?string {
     
     $input = trim((string)$input);
     
-    // Check length
-    if (mb_strlen($input) < 10) {
-        log_event('validation_fail', 'Security question too short', ['length' => mb_strlen($input)]);
+    // Check if empty
+    if (mb_strlen($input) === 0) {
+        log_event('validation_fail', 'Security question is empty');
         return null;
     }
     
+    // Check minimum length
+    if (mb_strlen($input) < 10) {
+        log_event('validation_fail', 'Security question too short', [
+            'length' => mb_strlen($input), 
+            'min_length' => 10,
+            'question_sample' => mb_substr($input, 0, 50)
+        ]);
+        return null;
+    }
+    
+    // Check maximum length
     if (mb_strlen($input) > 255) {
-        log_event('validation_fail', 'Security question too long', ['length' => mb_strlen($input)]);
+        log_event('validation_fail', 'Security question too long', [
+            'length' => mb_strlen($input), 
+            'max_length' => 255
+        ]);
         return null;
     }
     
@@ -184,8 +198,12 @@ function validate_admin_notes(?string $input, int $maxLen = 1000): ?string {
 
 function validate_email(?string $email): ?string {
     $email = trim((string)$email);
-    if ($email === '' || mb_strlen($email) > 254) {
-        log_event('validation_fail', 'Invalid email length');
+    if ($email === '') {
+        log_event('validation_fail', 'Empty email provided');
+        return null;
+    }
+    if (mb_strlen($email) > 254) {
+        log_event('validation_fail', 'Email too long', ['length' => mb_strlen($email)]);
         return null;
     }
     $filtered = filter_var($email, FILTER_VALIDATE_EMAIL);
@@ -199,18 +217,42 @@ function validate_email(?string $email): ?string {
 function validate_password(?string $password): ?string {
     $password = (string)$password;
     $len = mb_strlen($password);
-    if ($len < 12 || $len > 128) {
-        log_event('validation_fail', 'Password length policy violation');
+    
+    if ($len < 12) {
+        log_event('validation_fail', 'Password too short', ['length' => $len, 'min_length' => 12]);
         return null;
     }
+    
+    if ($len > 128) {
+        log_event('validation_fail', 'Password too long', ['length' => $len, 'max_length' => 128]);
+        return null;
+    }
+    
     $hasUpper = preg_match('/[A-Z]/', $password) === 1;
     $hasLower = preg_match('/[a-z]/', $password) === 1;
     $hasDigit = preg_match('/\d/', $password) === 1;
     $hasSpecial = preg_match('/[^A-Za-z0-9]/', $password) === 1;
-    if (!($hasUpper && $hasLower && $hasDigit && $hasSpecial)) {
-        log_event('validation_fail', 'Password complexity policy violation');
+    
+    if (!$hasUpper) {
+        log_event('validation_fail', 'Password missing uppercase letter');
         return null;
     }
+    
+    if (!$hasLower) {
+        log_event('validation_fail', 'Password missing lowercase letter');
+        return null;
+    }
+    
+    if (!$hasDigit) {
+        log_event('validation_fail', 'Password missing number');
+        return null;
+    }
+    
+    if (!$hasSpecial) {
+        log_event('validation_fail', 'Password missing special character');
+        return null;
+    }
+    
     return $password;
 }
 
@@ -230,9 +272,19 @@ function validate_int_range($value, int $min, int $max): ?int {
 function validate_security_answer(?string $answer): ?string {
     $answer = trim((string)$answer);
     
+    // Check if empty
+    if (mb_strlen($answer) === 0) {
+        log_event('validation_fail', 'Security answer is empty');
+        return null;
+    }
+    
     // Block very short answers (≤2 characters)
     if (mb_strlen($answer) <= 2) {
-        log_event('validation_fail', 'Security answer too short', ['answer_length' => mb_strlen($answer)]);
+        log_event('validation_fail', 'Security answer too short', [
+            'answer_length' => mb_strlen($answer),
+            'min_length' => 3,
+            'answer_sample' => $answer
+        ]);
         return null;
     }
     
@@ -240,51 +292,80 @@ function validate_security_answer(?string $answer): ?string {
     $commonAnswers = [
         'yes', 'no', 'maybe', 'ok', 'test', 'password', '123', 'abc', 'qwerty', 
         'admin', 'user', 'answer', 'response', 'reply', 'none', 'nothing', 'unknown',
-        'true', 'false', 'yes', 'no', 'maybe', 'ok', 'test', 'password', '123', 
-        'abc', 'qwerty', 'admin', 'user', 'answer', 'response', 'reply', 'none', 
-        'nothing', 'unknown', 'true', 'false', 'idk', 'dunno', 'whatever', 'same',
-        'default', 'blank', 'empty', 'null', 'undefined', 'n/a', 'na', 'skip'
+        'true', 'false', 'idk', 'dunno', 'whatever', 'same', 'default', 'blank', 
+        'empty', 'null', 'undefined', 'n/a', 'na', 'skip', 'hello', 'hi', 'bye',
+        'good', 'bad', 'okay', 'fine', 'great', 'awesome', 'cool', 'nice', 'good',
+        'excellent', 'perfect', 'wonderful', 'amazing', 'fantastic', 'terrible',
+        'horrible', 'awful', 'disgusting', 'beautiful', 'ugly', 'pretty', 'handsome'
     ];
     
     $normalizedAnswer = strtolower($answer);
     if (in_array($normalizedAnswer, $commonAnswers)) {
-        log_event('validation_fail', 'Security answer too common/weak', ['answer' => $answer]);
+        log_event('validation_fail', 'Security answer too common/weak', [
+            'answer' => $answer,
+            'reason' => 'common_word'
+        ]);
         return null;
     }
     
     // Block numeric-only answers
     if (preg_match('/^\d+$/', $answer)) {
-        log_event('validation_fail', 'Security answer is numeric-only', ['answer' => $answer]);
+        log_event('validation_fail', 'Security answer is numeric-only', [
+            'answer' => $answer,
+            'reason' => 'numeric_only'
+        ]);
         return null;
     }
     
     // Block repeated character patterns (e.g., "aaa", "111", "abcabc")
-    if (preg_match('/(.)\1{2,}/', $answer) || preg_match('/(.{2,})\1/', $answer)) {
-        log_event('validation_fail', 'Security answer has repeated patterns', ['answer' => $answer]);
+    if (preg_match('/(.)\1{2,}/', $answer)) {
+        log_event('validation_fail', 'Security answer has repeated characters', [
+            'answer' => $answer,
+            'reason' => 'repeated_characters'
+        ]);
+        return null;
+    }
+    
+    if (preg_match('/(.{2,})\1/', $answer)) {
+        log_event('validation_fail', 'Security answer has repeated patterns', [
+            'answer' => $answer,
+            'reason' => 'repeated_patterns'
+        ]);
         return null;
     }
     
     // Block single character repeated
     if (mb_strlen($answer) > 0 && preg_match('/^(.)\1*$/', $answer)) {
-        log_event('validation_fail', 'Security answer is single character repeated', ['answer' => $answer]);
+        log_event('validation_fail', 'Security answer is single character repeated', [
+            'answer' => $answer,
+            'reason' => 'single_character_repeated'
+        ]);
         return null;
     }
     
     // Block answers that are too long
     if (mb_strlen($answer) > 100) {
-        log_event('validation_fail', 'Security answer too long', ['answer_length' => mb_strlen($answer)]);
+        log_event('validation_fail', 'Security answer too long', [
+            'answer_length' => mb_strlen($answer),
+            'max_length' => 100
+        ]);
         return null;
     }
     
     // Block answers with only whitespace characters
     if (preg_match('/^\s+$/', $answer)) {
-        log_event('validation_fail', 'Security answer contains only whitespace');
+        log_event('validation_fail', 'Security answer contains only whitespace', [
+            'reason' => 'whitespace_only'
+        ]);
         return null;
     }
     
     // Block answers that are just punctuation
     if (preg_match('/^[^\w\s]+$/', $answer)) {
-        log_event('validation_fail', 'Security answer contains only punctuation', ['answer' => $answer]);
+        log_event('validation_fail', 'Security answer contains only punctuation', [
+            'answer' => $answer,
+            'reason' => 'punctuation_only'
+        ]);
         return null;
     }
     
