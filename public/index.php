@@ -1,6 +1,53 @@
 <?php declare(strict_types=1);
 require_once __DIR__ . '/includes/validation.php';
-ensure_session_started(); ?>
+require_once __DIR__ . '/includes/user.php';
+ensure_session_started(); 
+
+// Get security status for display (only if email was provided in previous attempt)
+$securityMessages = [];
+$errorMessage = '';
+$email = $_GET['email'] ?? '';
+
+// Check for error messages from login process
+if (isset($_GET['error'])) {
+    $errorMessage = 'Invalid username and/or password';
+}
+
+if ($email && validate_email($email)) {
+    $user = get_user_by_email($email);
+    if ($user) {
+        $failedAttempts = (int)($user['failed_attempts'] ?? 0);
+        $isLocked = is_account_locked($user);
+        
+        if ($isLocked && !empty($user['locked_until'])) {
+            $lockTime = strtotime($user['locked_until']);
+            $remainingMinutes = max(0, ceil(($lockTime - time()) / 60));
+            if ($remainingMinutes > 0) {
+                $securityMessages[] = [
+                    'type' => 'danger',
+                    'message' => "🔒 Account locked for {$remainingMinutes} minutes",
+                    'icon' => '🔒'
+                ];
+            }
+        } elseif ($failedAttempts > 0) {
+            $remainingAttempts = MAX_FAILED_ATTEMPTS - $failedAttempts;
+            if ($remainingAttempts > 0) {
+                $securityMessages[] = [
+                    'type' => 'warning',
+                    'message' => "{$remainingAttempts} login attempts remaining",
+                    'icon' => '⚠'
+                ];
+            } else {
+                $securityMessages[] = [
+                    'type' => 'danger',
+                    'message' => "🚫 Account locked due to too many failed attempts",
+                    'icon' => '🚫'
+                ];
+            }
+        }
+    }
+}
+?>
 <!doctype html>
 <html lang="en">
 <head>
@@ -23,6 +70,46 @@ ensure_session_started(); ?>
     .auth-cards { display:grid; grid-template-columns: 1fr; gap:16px; width:100%; max-width: 420px; }
     .auth-panel-card { background:#fff; border:1px solid #e5e7eb; border-radius:12px; padding:18px; overflow:hidden; width:100%; }
     .auth-panel-card h3 { margin:0 0 8px 0; font-size:18px; }
+    
+    /* Security Messages Styling */
+    .security-messages { margin-bottom: 16px; }
+    .security-message { 
+      padding: 12px; 
+      border-radius: 8px; 
+      margin-bottom: 8px; 
+      font-size: 14px; 
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .security-message.warning { 
+      background-color: #fef3c7; 
+      border: 1px solid #f59e0b; 
+      color: #92400e; 
+    }
+    .security-message.danger { 
+      background-color: #fee2e2; 
+      border: 1px solid #ef4444; 
+      color: #991b1b; 
+    }
+    .security-message .icon { font-size: 16px; }
+    
+    /* Error Message Styling */
+    .error-message { 
+      background-color: #fee2e2; 
+      border: 1px solid #ef4444; 
+      color: #991b1b; 
+      padding: 12px; 
+      border-radius: 8px; 
+      margin-bottom: 16px; 
+      font-size: 14px; 
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    
     .form-field { margin:10px 0; }
     .form-field input[type="email"], .form-field input[type="password"], .form-field input[type="text"] { width:100%; max-width:100%; padding:10px 12px; border:1px solid #cbd5e1; border-radius:8px; font-size:14px; }
     .password-field { position:relative; }
@@ -81,11 +168,30 @@ ensure_session_started(); ?>
       <div class="auth-cards">
          <div class="auth-panel-card" id="login-panel">
           <h3>Sign in</h3>
+          
+          <?php if ($errorMessage): ?>
+          <div class="error-message">
+            <span>❌</span>
+            <span><?php echo htmlspecialchars($errorMessage); ?></span>
+          </div>
+          <?php endif; ?>
+          
+          <?php if (!empty($securityMessages)): ?>
+          <div class="security-messages">
+            <?php foreach ($securityMessages as $message): ?>
+            <div class="security-message <?php echo htmlspecialchars($message['type']); ?>">
+              <span class="icon"><?php echo htmlspecialchars($message['icon']); ?></span>
+              <span><?php echo htmlspecialchars($message['message']); ?></span>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
+          
           <form method="post" action="/login.php" novalidate>
             <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token()); ?>">
             <div class="form-field">
               <label>Email</label><br>
-              <input type="email" name="email" required maxlength="254">
+              <input type="email" name="email" required maxlength="254" value="<?php echo htmlspecialchars($email); ?>">
             </div>
             <div class="form-field password-field">
               <label>Password</label><br>
