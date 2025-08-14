@@ -34,6 +34,37 @@ ensure_session_started(); ?>
     .btn:hover { filter:brightness(1.05); transform: translateY(-1px); }
     .btn.secondary { background:#64748b; color:#fff; }
     .btn.accent { background:#b29279; color:#fff; }
+    
+    .forgot-password {
+      text-align: left;
+      margin-top: 8px;
+    }
+    
+    .forgot-password a {
+      color: #991b1b;
+      text-decoration: underline;
+      font-size: 14px;
+    }
+    
+    .forgot-password a:hover {
+      color: #7f1d1d;
+    }
+    
+    .create-account {
+      text-align: center;
+      margin-top: 16px;
+    }
+    
+    .create-account a {
+      color: #374151;
+      text-decoration: underline;
+      font-size: 14px;
+    }
+    
+    .create-account a:hover {
+      color: #1f2937;
+    }
+    
     @media (max-width: 900px) { .auth-grid { grid-template-columns: 1fr; } .auth-hero .content { align-items:center; text-align:center; } }
   </style>
 </head>
@@ -67,8 +98,11 @@ ensure_session_started(); ?>
             <div class="form-actions">
               <button class="btn accent" type="submit" style="width:100%">Sign in</button>
             </div>
-            <div>
-              <a class="btn secondary btn-block" href="/register.php">Create account</a>
+            <div class="forgot-password">
+              <a href="/reset_password.php">Forgot your password?</a>
+            </div>
+            <div class="create-account">
+              <a href="/register.php">Create account</a>
             </div>
           </form>
         </div>
