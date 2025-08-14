@@ -13,6 +13,20 @@ if ($__path !== '/' && $__path !== '/index.php') {
   exit;
 }
 
+// If already authenticated, send to role dashboard instead of showing welcome
+if (!empty($_SESSION['user']) && !empty($_SESSION['user']['role'])) {
+  switch ($_SESSION['user']['role']) {
+    case 'admin':
+      redirect('/admin/dashboard.php');
+      break;
+    case 'manager':
+      redirect('/manager/dashboard.php');
+      break;
+    default:
+      redirect('/customer/dashboard.php');
+  }
+}
+
 // Get security status for display (only if email was provided in previous attempt)
 $securityMessages = [];
 $errorMessage = '';
