@@ -7,6 +7,25 @@ use GuzzleHttp\Client as HttpClient;
 // Composer autoload
 require __DIR__ . '/../vendor/autoload.php';
 
+// Set timezone to Philippine Standard Time
+date_default_timezone_set('Asia/Manila');
+
+// Verify timezone is set correctly
+function verify_timezone(): array {
+    $currentTimezone = date_default_timezone_get();
+    $currentTime = date('Y-m-d H:i:s');
+    $utcTime = gmdate('Y-m-d H:i:s');
+    $offset = date('P'); // +08:00 for Philippine time
+    
+    return [
+        'timezone' => $currentTimezone,
+        'local_time' => $currentTime,
+        'utc_time' => $utcTime,
+        'offset' => $offset,
+        'is_correct' => $currentTimezone === 'Asia/Manila'
+    ];
+}
+
 // Load .env from project root
 $dotenv = Dotenv::createImmutable(__DIR__ . '/../');
 $dotenv->safeLoad();

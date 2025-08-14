@@ -106,6 +106,67 @@ include __DIR__ . '/../includes/header.php';
 </div>
 
 <div class="card">
+    <h3>Security Overview</h3>
+    <div class="security-overview-grid">
+        <div class="security-stat-item">
+            <div class="stat-icon">🔒</div>
+            <div class="stat-content">
+                <span class="stat-number"><?php echo count_locked_accounts(); ?></span>
+                <span class="stat-label">Locked Accounts</span>
+            </div>
+        </div>
+        <div class="security-stat-item">
+            <div class="stat-icon">⚠</div>
+            <div class="stat-content">
+                <span class="stat-number"><?php echo count(get_users_approaching_lockout()); ?></span>
+                <span class="stat-label">Approaching Lockout</span>
+            </div>
+        </div>
+        <div class="security-stat-item">
+            <div class="stat-icon">🚨</div>
+            <div class="stat-content">
+                <span class="stat-number"><?php echo count_users_with_failed_attempts(); ?></span>
+                <span class="stat-label">Failed Login Users</span>
+            </div>
+        </div>
+        <div class="security-stat-item">
+            <div class="stat-icon">📊</div>
+            <div class="stat-content">
+                <span class="stat-number"><?php echo get_total_failed_attempts(); ?></span>
+                <span class="stat-label">Total Failed Attempts</span>
+            </div>
+        </div>
+    </div>
+    
+    <?php 
+    $usersApproachingLockout = get_users_approaching_lockout();
+    $recentlyLockedAccounts = get_recently_locked_accounts();
+    ?>
+    
+    <?php if (!empty($usersApproachingLockout) || !empty($recentlyLockedAccounts)): ?>
+        <div class="security-alerts-container">
+            <?php if (!empty($usersApproachingLockout)): ?>
+                <div class="security-alert-item warning">
+                    <span class="alert-icon">⚠</span>
+                    <div class="alert-content">
+                        <strong><?php echo count($usersApproachingLockout); ?> users</strong> are approaching account lockout (3+ failed attempts)
+                    </div>
+                </div>
+            <?php endif; ?>
+            
+            <?php if (!empty($recentlyLockedAccounts)): ?>
+                <div class="security-alert-item danger">
+                    <span class="alert-icon">🔒</span>
+                    <div class="alert-content">
+                        <strong><?php echo count($recentlyLockedAccounts); ?> accounts</strong> were locked in the last hour
+                    </div>
+                </div>
+            <?php endif; ?>
+        </div>
+    <?php endif; ?>
+</div>
+
+<div class="card">
     <h3>Create User</h3>
     <form method="post" novalidate class="create-user-form">
         <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(csrf_token()); ?>">
@@ -159,13 +220,15 @@ include __DIR__ . '/../includes/header.php';
                     <th>Email</th>
                     <th>Role</th>
                     <th>Security Questions</th>
+                    <th>Security Status</th>
                     <th>Status</th>
                     <th>Actions</th>
                 </tr>
             </thead>
             <tbody>
                 <?php foreach ($users as $user): ?>
-                    <tr class="<?php echo has_security_question($user['id']) ? 'has-questions' : 'no-questions'; ?>">
+                    <?php $securityStatus = get_user_security_status($user); ?>
+                    <tr class="<?php echo has_security_question($user['id']) ? 'has-questions' : 'no-questions'; ?> <?php echo $securityStatus['status']; ?>-row">
                         <td><?php echo htmlspecialchars($user['email']); ?></td>
                         <td><span class="role-badge role-<?php echo htmlspecialchars($user['role']); ?>"><?php echo htmlspecialchars($user['role']); ?></span></td>
                         <td>
@@ -174,6 +237,45 @@ include __DIR__ . '/../includes/header.php';
                             <?php else: ?>
                                 <span class="status-badge status-not-set">⚠ Not Set</span>
                             <?php endif; ?>
+                        </td>
+                        <td>
+                            <div class="security-status">
+                                <?php if ($securityStatus['is_locked']): ?>
+                                    <div class="security-indicator locked">
+                                        <span class="indicator-icon">🔒</span>
+                                        <div class="indicator-details">
+                                            <span class="status-text">Locked</span>
+                                            <?php if ($securityStatus['lockout_remaining']): ?>
+                                                <span class="lockout-time"><?php echo format_lockout_time($securityStatus['lockout_remaining']); ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
+                                <?php elseif ($securityStatus['approaching_lockout']): ?>
+                                    <div class="security-indicator warning">
+                                        <span class="indicator-icon">⚠</span>
+                                        <div class="indicator-details">
+                                            <span class="status-text">Warning</span>
+                                            <span class="failed-attempts"><?php echo $securityStatus['failed_attempts']; ?> failed attempts</span>
+                                        </div>
+                                    </div>
+                                <?php elseif ($securityStatus['failed_attempts'] > 0): ?>
+                                    <div class="security-indicator caution">
+                                        <span class="indicator-icon">⚡</span>
+                                        <div class="indicator-details">
+                                            <span class="status-text">Caution</span>
+                                            <span class="failed-attempts"><?php echo $securityStatus['failed_attempts']; ?> failed attempts</span>
+                                        </div>
+                                    </div>
+                                <?php else: ?>
+                                    <div class="security-indicator safe">
+                                        <span class="indicator-icon">✓</span>
+                                        <div class="indicator-details">
+                                            <span class="status-text">Safe</span>
+                                            <span class="failed-attempts">No failed attempts</span>
+                                        </div>
+                                    </div>
+                                <?php endif; ?>
+                            </div>
                         </td>
                         <td>
                             <?php if ($user['is_disabled']): ?>
@@ -264,6 +366,94 @@ include __DIR__ . '/../includes/header.php';
 <style>
 .security-overview {
     margin: 20px 0;
+}
+
+/* Security Overview Grid */
+.security-overview-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.security-stat-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 20px;
+    background: #f8fafc;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
+    transition: all 0.2s ease;
+}
+
+.security-stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.security-stat-item .stat-icon {
+    font-size: 32px;
+    flex-shrink: 0;
+}
+
+.security-stat-item .stat-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.security-stat-item .stat-number {
+    font-size: 24px;
+    font-weight: bold;
+    color: #2563eb;
+    line-height: 1;
+}
+
+.security-stat-item .stat-label {
+    font-size: 14px;
+    color: #6b7280;
+    margin-top: 4px;
+}
+
+/* Security Alerts Container */
+.security-alerts-container {
+    margin-top: 20px;
+}
+
+.security-alert-item {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 16px 20px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.security-alert-item.warning {
+    background: #fef3c7;
+    border: 1px solid #fed7aa;
+    color: #92400e;
+}
+
+.security-alert-item.danger {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.security-alert-item .alert-icon {
+    font-size: 20px;
+    font-weight: bold;
+    flex-shrink: 0;
+}
+
+.security-alert-item .alert-content {
+    flex: 1;
+}
+
+.security-alert-item .alert-content strong {
+    font-weight: 600;
 }
 
 .overview-stats {
@@ -401,6 +591,96 @@ include __DIR__ . '/../includes/header.php';
 
 .user-table tr.no-questions {
     background: #fef3c7;
+}
+
+/* Security Status Styling */
+.user-table tr.locked-row {
+    background: #fef2f2;
+    border-left: 4px solid #dc2626;
+}
+
+.user-table tr.warning-row {
+    background: #fef3c7;
+    border-left: 4px solid #f59e0b;
+}
+
+.user-table tr.caution-row {
+    background: #f0f9ff;
+    border-left: 4px solid #0ea5e9;
+}
+
+.user-table tr.safe-row {
+    background: #f0fdf4;
+    border-left: 4px solid #22c55e;
+}
+
+.security-status {
+    display: flex;
+    align-items: center;
+}
+
+.security-indicator {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    min-width: 120px;
+}
+
+.security-indicator.locked {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+}
+
+.security-indicator.warning {
+    background: #fef3c7;
+    border: 1px solid #fed7aa;
+    color: #92400e;
+}
+
+.security-indicator.caution {
+    background: #f0f9ff;
+    border: 1px solid #bae6fd;
+    color: #0c4a6e;
+}
+
+.security-indicator.safe {
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    color: #166534;
+}
+
+.indicator-icon {
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.indicator-details {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.status-text {
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.failed-attempts,
+.lockout-time {
+    font-size: 11px;
+    opacity: 0.8;
+}
+
+.lockout-time {
+    font-family: monospace;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 2px 4px;
+    border-radius: 3px;
 }
 
 .role-badge {
@@ -559,11 +839,52 @@ include __DIR__ . '/../includes/header.php';
         grid-template-columns: 1fr;
     }
     
+    .security-overview-grid {
+        grid-template-columns: 1fr;
+        gap: 16px;
+    }
+    
+    .security-stat-item {
+        padding: 16px;
+    }
+    
+    .security-stat-item .stat-icon {
+        font-size: 24px;
+    }
+    
+    .security-stat-item .stat-number {
+        font-size: 20px;
+    }
+    
     .form-row {
         grid-template-columns: 1fr;
     }
     
-
+    .table-container {
+        overflow-x: auto;
+    }
+    
+    .user-table {
+        min-width: 800px;
+    }
+    
+    .security-indicator {
+        min-width: 100px;
+        padding: 6px 8px;
+    }
+    
+    .indicator-details {
+        gap: 1px;
+    }
+    
+    .status-text {
+        font-size: 11px;
+    }
+    
+    .failed-attempts,
+    .lockout-time {
+        font-size: 10px;
+    }
     
     .action-buttons {
         flex-direction: column;
