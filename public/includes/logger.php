@@ -65,6 +65,33 @@ function log_event(string $type, string $message, array $context = []): void {
     ];
     $line = json_encode($entry, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) . PHP_EOL;
     @file_put_contents(app_log_path(), $line, FILE_APPEND | LOCK_EX);
+
+    // Mirror to DB (non-blocking)
+    try {
+        $level = 'info';
+        if ($type === 'php_error' || $type === 'exception') {
+            $level = 'error';
+        } elseif (substr($type, -5) === '_fail') {
+            $level = 'warn';
+        }
+
+        $data = [
+            'level' => $level,
+            'event' => $type,
+            'message' => $message,
+            'user_id' => $entry['user_id'],
+            'ip' => $entry['ip'],
+            'user_agent' => $_SERVER['HTTP_USER_AGENT'] ?? null,
+            'route' => $entry['uri'],
+            'method' => $_SERVER['REQUEST_METHOD'] ?? null,
+            'status_code' => http_response_code(),
+            'context' => $context,
+            'created_at' => $entry['ts'],
+        ];
+        sb_insert('app_logs', $data);
+    } catch (Throwable $e) {
+        // ignore
+    }
 }
 
 // Production-safe error/exception handlers

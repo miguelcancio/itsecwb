@@ -1,7 +1,17 @@
 <?php declare(strict_types=1);
 require_once __DIR__ . '/includes/validation.php';
 require_once __DIR__ . '/includes/user.php';
+require_once __DIR__ . '/includes/logger.php';
 ensure_session_started(); 
+
+// If this request reached index.php for a non-root path, serve 404
+$__path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+if ($__path !== '/' && $__path !== '/index.php') {
+  http_response_code(404);
+  log_event('not_found', 'Route not found', ['path' => $__path]);
+  require __DIR__ . '/errors/404.php';
+  exit;
+}
 
 // Get security status for display (only if email was provided in previous attempt)
 $securityMessages = [];
