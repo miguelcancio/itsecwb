@@ -24,8 +24,8 @@ function create_room(string $name, string $description = '', int $capacity = 1):
         'description' => $validatedDescription,
         'capacity' => $capacity,
         'is_active' => true,
-        'created_at' => gmdate('c'),
-        'updated_at' => gmdate('c')
+        'created_at' => date('c'),
+        'updated_at' => date('c')
     ]);
     return $room ?: null;
 }
@@ -49,7 +49,7 @@ function update_room(string $roomId, array $data): bool {
     }
     if (empty($updates)) { return false; }
     
-    $updates['updated_at'] = gmdate('c');
+    $updates['updated_at'] = date('c');
     return sb_update('rooms', ['id' => $roomId], $updates);
 }
 

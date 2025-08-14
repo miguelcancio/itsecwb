@@ -204,7 +204,7 @@ include __DIR__ . '/../includes/header.php';
                         $upcomingReservations = sb_get('reservations', [
                             'room_id' => $room['id'],
                             'status' => ['in' => ['pending', 'approved']],
-                            'date_from' => ['gte' => gmdate('Y-m-d')]
+                            'date_from' => ['gte' => date('Y-m-d')]
                         ], 10, 0, 'date_from,date_to,status');
                         ?>
                         

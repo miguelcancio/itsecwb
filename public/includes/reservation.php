@@ -272,8 +272,8 @@ function create_reservation(string $userId, string $roomId, string $dateFrom, st
         'room' => $room['name'],
         'date_from' => $dateFromIso,
         'date_to' => $dateToIso,
-        'created_at' => gmdate('c'),
-        'updated_at' => gmdate('c'),
+        'created_at' => date('c'),
+        'updated_at' => date('c'),
         'status' => 'pending'
     ]);
     return $rec ?: null;
@@ -284,7 +284,7 @@ function update_reservation_status(string $reservationId, string $status): bool 
     if (!$validatedStatus) {
         return false;
     }
-    return sb_update('reservations', ['id' => $reservationId], ['status' => $validatedStatus, 'updated_at' => gmdate('c')]);
+    return sb_update('reservations', ['id' => $reservationId], ['status' => $validatedStatus, 'updated_at' => date('c')]);
 }
 
 function delete_reservation(string $reservationId, string $userId): bool {

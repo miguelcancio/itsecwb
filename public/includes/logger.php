@@ -54,7 +54,7 @@ function get_client_ip(): string {
 
 function log_event(string $type, string $message, array $context = []): void {
     $entry = [
-        'ts' => gmdate('c'),
+        'ts' => date('c'), // Use local timezone (Philippine Standard Time) instead of UTC
         'type' => $type,
         'message' => $message,
         'ip' => get_client_ip(),

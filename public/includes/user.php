@@ -9,7 +9,7 @@ const ACCOUNT_LOCK_MINUTES = 15;
 const PASSWORD_HISTORY_COUNT = 5;
 const PASSWORD_MIN_AGE_DAYS = 1;
 
-function now_iso(): string { return gmdate('c'); }
+function now_iso(): string { return date('c'); }
 
 function get_user_by_email(string $email): ?array {
     $rows = sb_get('users', ['email' => strtolower($email)], 1);
@@ -32,7 +32,7 @@ function increment_failed_attempts(array $user): void {
     $failed = (int)($user['failed_attempts'] ?? 0) + 1;
     $data = ['failed_attempts' => $failed];
     if ($failed >= MAX_FAILED_ATTEMPTS) {
-        $data['locked_until'] = gmdate('c', time() + ACCOUNT_LOCK_MINUTES * 60);
+        $data['locked_until'] = date('c', time() + ACCOUNT_LOCK_MINUTES * 60);
     }
     sb_update('users', ['id' => $user['id']], $data);
 }
@@ -460,6 +460,121 @@ function update_user_status(string $userId, bool $isActive): bool {
     }
     
     return sb_update('users', ['id' => $userId], $data);
+}
+
+// Security monitoring functions
+function count_locked_accounts(): int {
+    $allUsers = list_users();
+    $lockedCount = 0;
+    
+    foreach ($allUsers as $user) {
+        if (is_account_locked($user)) {
+            $lockedCount++;
+        }
+    }
+    
+    return $lockedCount;
+}
+
+function count_users_with_failed_attempts(): int {
+    $allUsers = list_users();
+    $failedCount = 0;
+    
+    foreach ($allUsers as $user) {
+        if (!empty($user['failed_attempts']) && (int)$user['failed_attempts'] > 0) {
+            $failedCount++;
+        }
+    }
+    
+    return $failedCount;
+}
+
+function get_total_failed_attempts(): int {
+    $allUsers = list_users();
+    $totalFailed = 0;
+    
+    foreach ($allUsers as $user) {
+        $totalFailed += (int)($user['failed_attempts'] ?? 0);
+    }
+    
+    return $totalFailed;
+}
+
+function get_users_approaching_lockout(): array {
+    $allUsers = list_users();
+    $approachingLockout = [];
+    
+    foreach ($allUsers as $user) {
+        $failedAttempts = (int)($user['failed_attempts'] ?? 0);
+        if ($failedAttempts >= 3 && $failedAttempts < MAX_FAILED_ATTEMPTS) {
+            $approachingLockout[] = $user;
+        }
+    }
+    
+    return $approachingLockout;
+}
+
+function get_recently_locked_accounts(): array {
+    $allUsers = list_users();
+    $recentlyLocked = [];
+    $oneHourAgo = time() - (60 * 60); // 1 hour ago
+    
+    foreach ($allUsers as $user) {
+        if (!empty($user['locked_until'])) {
+            $lockedTime = strtotime($user['locked_until']);
+            if ($lockedTime > $oneHourAgo) {
+                $recentlyLocked[] = $user;
+            }
+        }
+    }
+    
+    return $recentlyLocked;
+}
+
+function get_user_security_status(array $user): array {
+    $failedAttempts = (int)($user['failed_attempts'] ?? 0);
+    $isLocked = is_account_locked($user);
+    $lockoutRemaining = null;
+    
+    if ($isLocked && !empty($user['locked_until'])) {
+        $lockoutTime = strtotime($user['locked_until']);
+        $remaining = $lockoutTime - time();
+        if ($remaining > 0) {
+            $lockoutRemaining = $remaining;
+        }
+    }
+    
+    $status = 'active';
+    if ($isLocked) {
+        $status = 'locked';
+    } elseif ($failedAttempts >= 3) {
+        $status = 'warning';
+    } elseif ($failedAttempts > 0) {
+        $status = 'caution';
+    }
+    
+    return [
+        'status' => $status,
+        'failed_attempts' => $failedAttempts,
+        'is_locked' => $isLocked,
+        'lockout_remaining' => $lockoutRemaining,
+        'approaching_lockout' => $failedAttempts >= 3 && $failedAttempts < MAX_FAILED_ATTEMPTS
+    ];
+}
+
+function format_lockout_time(int $seconds): string {
+    if ($seconds <= 0) {
+        return 'Unlocked';
+    }
+    
+    $minutes = floor($seconds / 60);
+    $remainingSeconds = $seconds % 60;
+    
+    if ($minutes > 0) {
+        return $remainingSeconds > 0 ? "{$minutes}m {$remainingSeconds}s" : "{$minutes}m";
+    }
+    
+    return "{$remainingSeconds}s";
 }
 
 
