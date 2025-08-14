@@ -56,5 +56,5 @@ if (!$user) {
     }
 }
 
-// On failure, go back to index login UI
-redirect('/index.php');
+// On failure, go back to index login UI with email parameter for security messages
+redirect('/index.php' . ($email ? '?email=' . urlencode($email) . '&error=1' : '?error=1'));
